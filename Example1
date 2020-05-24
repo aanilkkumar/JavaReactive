@@ -1,0 +1,53 @@
+https://stackabuse.com/spring-reactor-tutorial/
+
+Get a Springboot project with "Reactive Web" dependency.
+
+1. Let's define a simple POJO - Greeting:
+    public class Greeting {
+    private String msg;
+    // Constructors, getters and setters
+}
+
+@RestController
+public class GreetReactiveController {
+    @GetMapping("/greetings")
+    public Publisher<Greeting> greetingPublisher() {
+        Flux<Greeting> greetingFlux = Flux.<Greeting>generate(sink -> sink.next(new Greeting("Hello"))).take(50);
+        return greetingFlux;
+    }
+}
+
+Calling Flux.generate() will create a never ending stream of the Greeting object.
+
+The take() method, as the name suggests, will only take first 50 values from the stream.
+
+It's important to note that the return type of the method is the asynchronous type Publisher<Greeting>.
+
+Server-Sent Events
+Another publisher that has been used ever since their arrival is Server-Sent Events.
+
+@GetMapping(value = "/greetings/sse", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+public Publisher<Greeting> sseGreetings() {
+    Flux<Greeting> delayElements = Flux
+            .<Greeting>generate(sink -> sink.next(new Greeting("Hello @" + Instant.now().toString())))
+            .delayElements(Duration.ofSeconds(1));
+    return delayElements;
+}
+
+Alternatively, we could've defined this:
+@GetMapping(value = "/greetings/sse", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+Flux<Greeting> events() {
+    Flux<Greeting> greetingFlux = Flux.fromStream(Stream.generate(() -> new Greeting("Hello @" + Instant.now().toString())));
+    Flux<Long> durationFlux = Flux.interval(Duration.ofSeconds(1));
+    return Flux.zip(greetingFlux, durationFlux).map(Tuple2::getT1);
+}
+These methods produce a TEXT_EVENT_STREAM_VALUE which esentially means that the data is being sent in the form of Server-Sent events.
+
+Note that in the first example, we're using a Publisher and in the second example we're using a Flux. A valid question would be:
+
+"Which return type should I use then?"
+
+It's advised to use Flux and Mono over Publisher. Both of these classes are implementations of the Publisher interface 
+originating from Reactive Streams.While you can use them interchangeably, it's more expressive and descriptive to use the 
+implementations.
+
